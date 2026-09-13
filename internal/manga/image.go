@@ -41,7 +41,7 @@ func (m *Media) Serve(w http.ResponseWriter, r *http.Request, provider, albumID,
 		return http.StatusNotFound, err
 	}
 	u, err := url.Parse(page.SourceURL)
-	if err != nil || !m.store.allowedHost(u.Hostname()) {
+	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || u.Hostname() == "" {
 		return http.StatusBadRequest, errors.New("invalid source URL")
 	}
 	ctx := safehttp.WithHosts(r.Context(), []string{u.Hostname()})

@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -54,11 +53,7 @@ func main() {
 		if dir == "" {
 			dir = "data/manga/manifests"
 		}
-		hosts := os.Getenv("JM_IMAGE_HOST_SUFFIXES")
-		if hosts == "" {
-			hosts = "jmapiproxy1.cc,jmapiproxy2.cc,jmapinodeudzn.net,18comic.org,18comic.vip"
-		}
-		store, err := manga.NewStore(dir, secret, strings.Split(hosts, ","))
+		store, err := manga.NewStore(dir, secret)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

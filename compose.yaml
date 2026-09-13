@@ -20,7 +20,6 @@ services:
       MANGA_PUBLISH_SECRET: '${MANGA_PUBLISH_SECRET:-}'
       MANGA_MANIFEST_DIR: '/data/manga/manifests'
       PUBLIC_BASE_URL: '${PUBLIC_BASE_URL:-https://image.lospro.kissnab.top}'
-      JM_IMAGE_HOST_SUFFIXES: '${JM_IMAGE_HOST_SUFFIXES:-jmapiproxy1.cc,jmapiproxy2.cc,jmapinodeudzn.net,18comic.org,18comic.vip}'
       MAX_MANGA_DECODE_CONCURRENCY: '${MAX_MANGA_DECODE_CONCURRENCY:-2}'
       MAX_MANGA_IMAGE_MIB: '${MAX_MANGA_IMAGE_MIB:-24}'
       MAX_MANGA_MEGAPIXELS: '${MAX_MANGA_MEGAPIXELS:-40}'

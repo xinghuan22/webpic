@@ -73,21 +73,20 @@ type PublicManifest struct {
 }
 
 type Store struct {
-	dir      string
-	secret   []byte
-	suffixes []string
-	mu       sync.RWMutex
-	nonces   map[string]time.Time
+	dir    string
+	secret []byte
+	mu     sync.RWMutex
+	nonces map[string]time.Time
 }
 
-func NewStore(dir, secret string, suffixes []string) (*Store, error) {
+func NewStore(dir, secret string) (*Store, error) {
 	if len(secret) < 32 {
 		return nil, errors.New("MANGA_PUBLISH_SECRET must contain at least 32 characters")
 	}
 	if err := os.MkdirAll(filepath.Join(dir, "jm"), 0o700); err != nil {
 		return nil, fmt.Errorf("create manga manifest directory: %w", err)
 	}
-	return &Store{dir: dir, secret: []byte(secret), suffixes: suffixes, nonces: make(map[string]time.Time)}, nil
+	return &Store{dir: dir, secret: []byte(secret), nonces: make(map[string]time.Time)}, nil
 }
 
 func (s *Store) Authenticate(timestamp, nonce, signature string, body []byte, now time.Time) error {
@@ -152,7 +151,7 @@ func (s *Store) Validate(m *Manifest) error {
 				return errors.New("unsupported manga decode scheme")
 			}
 			u, err := url.Parse(page.SourceURL)
-			if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || !s.allowedHost(u.Hostname()) {
+			if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || u.Hostname() == "" {
 				return errors.New("unapproved manga image URL")
 			}
 		}
@@ -163,17 +162,6 @@ func (s *Store) Validate(m *Manifest) error {
 	sort.SliceStable(m.Chapters, func(i, j int) bool { return m.Chapters[i].Order < m.Chapters[j].Order })
 	m.UpdatedAt = time.Now().Unix()
 	return nil
-}
-
-func (s *Store) allowedHost(host string) bool {
-	host = strings.ToLower(strings.TrimSuffix(host, "."))
-	for _, suffix := range s.suffixes {
-		suffix = strings.ToLower(strings.Trim(strings.TrimSpace(suffix), "."))
-		if suffix != "" && (host == suffix || strings.HasSuffix(host, "."+suffix)) {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Store) Save(m Manifest) error {
@@ -232,8 +220,6 @@ func FindPage(m Manifest, chapterID string, index int) (Page, error) {
 	}
 	return Page{}, os.ErrNotExist
 }
-
-func (s *Store) Hosts() []string { return append([]string(nil), s.suffixes...) }
 
 func Public(m Manifest) PublicManifest {
 	out := PublicManifest{Provider: m.Provider, AlbumID: m.AlbumID, Title: m.Title, Authors: m.Authors, Description: m.Description, UpdatedAt: m.UpdatedAt}

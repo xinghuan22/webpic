@@ -22,7 +22,7 @@ func signed(secret, timestamp, nonce string, body []byte) string {
 
 func TestStoreAuthenticationAndPublicManifest(t *testing.T) {
 	secret := "0123456789abcdef0123456789abcdef"
-	store, err := NewStore(filepath.Join(t.TempDir(), "manifests"), secret, []string{"jmapiproxy1.cc"})
+	store, err := NewStore(filepath.Join(t.TempDir(), "manifests"), secret)
 	if err != nil {
 		t.Fatal(err)
 	}

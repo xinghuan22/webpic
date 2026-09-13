@@ -99,7 +99,6 @@ https://image.lospro.kissnab.top {
 | `MANGA_PUBLISH_SECRET` | 空 | AstrBot 与 Go 共用的 HMAC 密钥；至少 32 字符，为空时关闭漫画路由 |
 | `PUBLIC_BASE_URL` | `http://localhost:监听端口` | 发布接口返回给用户的公网地址 |
 | `MANGA_MANIFEST_DIR` | `data/manga/manifests` | 只保存小型 JSON 清单，不保存漫画图片 |
-| `JM_IMAGE_HOST_SUFFIXES` | 内置 JM CDN 列表 | 允许代理的图片域名后缀，逗号分隔 |
 | `MAX_MANGA_DECODE_CONCURRENCY` | `2` | 同时解混淆的图片数，范围 1–8 |
 | `MAX_MANGA_IMAGE_MIB` | `24` | 单张待解混淆图片的编码大小上限 |
 | `MAX_MANGA_MEGAPIXELS` | `40` | 单张待解混淆图片的像素上限 |
