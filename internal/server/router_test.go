@@ -41,6 +41,9 @@ func TestRoutesAndMedia(t *testing.T) {
 		if w.Code != 200 {
 			t.Fatalf("%s: %d %s", path, w.Code, w.Body.String())
 		}
+		if !strings.Contains(w.Header().Get("Content-Security-Policy"), "connect-src 'self'") {
+			t.Fatal("CSP blocks same-origin API requests")
+		}
 		if strings.HasPrefix(path, "/post") {
 			if strings.Contains(w.Body.String(), `src="/media/danbooru/42/original"`) || strings.Contains(w.Body.String(), `href="javascript:`) || strings.Contains(w.Body.String(), "<script>") {
 				t.Fatal("unsafe rendering")

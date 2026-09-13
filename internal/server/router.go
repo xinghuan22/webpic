@@ -40,7 +40,7 @@ func New(reg *resolver.Registry, media *proxy.Proxy, mangaRoutes ...*manga.Route
 		start := time.Now()
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("Referrer-Policy", "no-referrer")
-		c.Header("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+		c.Header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
 		defer func() {
 			if recover() != nil {
 				slog.Error("request panic", "route", c.FullPath())
