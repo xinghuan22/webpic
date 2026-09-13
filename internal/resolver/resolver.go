@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image-gateway/internal/cache"
 	"log/slog"
 	"net/http"
@@ -18,7 +19,9 @@ var ErrBusy = errors.New("metadata concurrency limit reached")
 
 type UpstreamError struct{ Status int }
 
-func (e *UpstreamError) Error() string { return "upstream API request failed" }
+func (e *UpstreamError) Error() string {
+	return fmt.Sprintf("upstream API returned HTTP %d", e.Status)
+}
 
 type ImagePost struct {
 	Site        string   `json:"site"`
@@ -119,6 +122,7 @@ func (r *Registry) Resolve(ctx context.Context, ref Reference) (ImagePost, error
 	start := time.Now()
 	p, err := a.Resolve(ctx, ref)
 	status := 200
+	upstreamStatus := 0
 	if err != nil {
 		status = 502
 		if errors.Is(err, ErrNotFound) {
@@ -126,10 +130,11 @@ func (r *Registry) Resolve(ctx context.Context, ref Reference) (ImagePost, error
 		}
 		var up *UpstreamError
 		if errors.As(err, &up) {
+			upstreamStatus = up.Status
 			status = up.Status
 		}
 	}
-	slog.Info("metadata request", "site", ref.Site, "post_id", ref.ID, "duration", time.Since(start), "status", status, "error", err)
+	slog.Info("metadata request", "site", ref.Site, "post_id", ref.ID, "duration", time.Since(start), "status", status, "upstream_status", upstreamStatus, "error", err)
 	if err == nil {
 		r.cache.Set(key, p)
 		r.cache.Set(p.Site+":"+p.ID+":", p)

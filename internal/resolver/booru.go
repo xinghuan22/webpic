@@ -6,6 +6,7 @@ import (
 	"errors"
 	"image-gateway/internal/safehttp"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
@@ -76,7 +77,7 @@ func (b *booru) Resolve(ctx context.Context, ref Reference) (ImagePost, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	endpoint := b.base + "/post.json"
-	q := url.Values{"tags": {"id:" + ref.ID}, "limit": {"1"}}
+	q := url.Values{"tags": {"id:" + ref.ID}, "limit": {"1"}, "api_version": {"2"}, "include_tags": {"1"}}
 	switch b.site {
 	case "danbooru":
 		endpoint = b.base + "/posts/" + ref.ID + ".json"
@@ -124,6 +125,7 @@ func (b *booru) Resolve(ctx context.Context, ref Reference) (ImagePost, error) {
 		return ImagePost{}, errors.New("invalid API response trailer")
 	}
 	var rows []record
+	var tagTypes map[string]string
 	if b.site == "danbooru" {
 		var row record
 		err = json.Unmarshal(raw, &row)
@@ -132,10 +134,16 @@ func (b *booru) Resolve(ctx context.Context, ref Reference) (ImagePost, error) {
 		err = json.Unmarshal(raw, &rows)
 	} else {
 		var wrapped struct {
-			Posts []record `json:"post"`
+			Post     []record          `json:"post"`
+			Posts    []record          `json:"posts"`
+			TagTypes map[string]string `json:"tags"`
 		}
 		err = json.Unmarshal(raw, &wrapped)
-		rows = wrapped.Posts
+		rows = wrapped.Post
+		if len(rows) == 0 {
+			rows = wrapped.Posts
+		}
+		tagTypes = wrapped.TagTypes
 	}
 	if err != nil {
 		return ImagePost{}, errors.New("unsupported API response format")
@@ -191,6 +199,32 @@ func (b *booru) Resolve(ctx context.Context, ref Reference) (ImagePost, error) {
 	}
 	if ts, e := strconv.ParseInt(p.CreatedAt, 10, 64); e == nil && ts > 0 {
 		p.CreatedAt = time.Unix(ts, 0).UTC().Format(time.RFC3339)
+	}
+	if (b.site == "yandere" || b.site == "konachan") && len(tagTypes) > 0 {
+		p.Artists = nil
+		p.Characters = nil
+		p.Copyrights = nil
+		for _, tag := range p.Tags {
+			switch tagTypes[tag] {
+			case "artist":
+				p.Artists = append(p.Artists, tag)
+			case "character":
+				p.Characters = append(p.Characters, tag)
+			case "copyright":
+				p.Copyrights = append(p.Copyrights, tag)
+			}
+		}
+	}
+	if b.site == "gelbooru" && len(p.Tags) > 0 {
+		artists, characters, copyrights, classifyErr := b.classifyGelbooruTags(ctx, p.Tags)
+		p.Artists = artists
+		p.Characters = characters
+		p.Copyrights = copyrights
+		if classifyErr != nil {
+			// Tag classification enriches the page but is not required to proxy the image.
+			// Keep the post usable when Gelbooru's tag endpoint is temporarily unavailable.
+			slog.Warn("gelbooru tag classification failed", "post_id", p.ID, "error", classifyErr)
+		}
 	}
 	return p, nil
 }

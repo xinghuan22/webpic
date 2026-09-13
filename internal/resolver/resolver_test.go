@@ -45,8 +45,14 @@ func TestAdapters(t *testing.T) {
 				if r.Header.Get("Referer") == "" {
 					t.Error("missing referer")
 				}
-				body := `{"id":42,"file_url":"/original.jpg","sample_url":"/sample.jpg","preview_url":"/preview.jpg","large_file_url":"/large.jpg","preview_file_url":"/small.jpg","width":"800","height":600,"image_width":800,"image_height":600,"score":"10","file_size":12345,"created_at":1700000000,"tags":"one two","tag_string_artist":"artist"}`
+				body := `{"id":42,"file_url":"/original.jpg","sample_url":"/sample.jpg","preview_url":"/preview.jpg","large_file_url":"/large.jpg","preview_file_url":"/small.jpg","width":"800","height":600,"image_width":800,"image_height":600,"score":"10","file_size":12345,"created_at":1700000000,"tags":"one two series","tag_string_artist":"artist"}`
 				if site == "gelbooru" {
+					if r.URL.Query().Get("s") == "tag" {
+						if r.URL.Query().Get("names") != "one two series" || r.URL.Query().Get("api_key") != "secret" {
+							t.Error("bad tag DAPI query")
+						}
+						return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"@attributes":{"count":3},"tag":[{"name":"one","type":1},{"name":"two","type":"4"},{"name":"series","type":3}]}`)), Header: make(http.Header)}, nil
+					}
 					if r.URL.Query().Get("id") != "42" || r.URL.Query().Get("api_key") != "secret" {
 						t.Error("bad DAPI query")
 					}
@@ -55,7 +61,14 @@ func TestAdapters(t *testing.T) {
 					if r.URL.Query().Get("tags") != "id:42" {
 						t.Error("bad moebooru query")
 					}
-					body = "[" + body + "]"
+					if r.URL.Query().Get("api_version") != "2" || r.URL.Query().Get("include_tags") != "1" {
+						t.Error("missing Moebooru tag metadata query")
+					}
+					if site == "yandere" {
+						body = `{"posts":[` + body + `],"tags":{"one":"artist","two":"character","series":"copyright"}}`
+					} else {
+						body = "[" + body + "]"
+					}
 				}
 				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
 			})}
@@ -65,8 +78,18 @@ func TestAdapters(t *testing.T) {
 				if e != nil || p.ID != "42" || p.Width != 800 || p.Score != 10 || p.OriginalURL == "" {
 					t.Fatalf("%+v %v", p, e)
 				}
+				if site == "gelbooru" && (strings.Join(p.Artists, " ") != "one" || strings.Join(p.Characters, " ") != "two" || strings.Join(p.Copyrights, " ") != "series") {
+					t.Fatalf("Gelbooru tag classification failed: %+v", p)
+				}
+				if site == "yandere" && (strings.Join(p.Artists, " ") != "one" || strings.Join(p.Characters, " ") != "two" || strings.Join(p.Copyrights, " ") != "series") {
+					t.Fatalf("Moebooru tag classification failed: %+v", p)
+				}
 			}
-			if calls != 1 {
+			wantCalls := 1
+			if site == "gelbooru" {
+				wantCalls = 2
+			}
+			if calls != wantCalls {
 				t.Errorf("cache calls=%d", calls)
 			}
 		})

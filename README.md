@@ -108,6 +108,17 @@ https://image.lospro.kissnab.top {
 
 Gelbooru MD5 示例：`https://gelbooru.com/index.php?page=post&s=list&md5=ff3f5c2fbaf68f9b489d234c1fe922fb`。服务器以 `tags=md5:<hash>` 查询，并检查结果 MD5 与输入一致；页面使用解析出的 post ID。
 
+Gelbooru 可能针对服务器出口 IP 要求 API 认证。遇到 Gelbooru 单站持续返回 502 时，
+在 `.env` 中同时配置 `GELBOORU_USER_ID` 和 `GELBOORU_API_KEY`，然后重新创建容器：
+
+```sh
+nerdctl compose up -d --build --force-recreate
+nerdctl compose logs --tail=100 image-gateway
+```
+
+`metadata request` 日志中的 `upstream_status` 可用于区分认证失败（通常为 401/403）、
+限流（429）和响应解析问题（该值为 0）。日志不会输出 API key。
+
 API 错误结构：`{"error":{"message":"…","id":"…"}}`，使用对应 HTTP 状态码；HTML 错误页显示同一错误 ID，可在 slog JSON 日志中查询。日志不保存输入 URL、上游响应正文、API key、Cookie 或客户端 IP。
 
 ## Adapter 实现情况
@@ -115,9 +126,9 @@ API 错误结构：`{"error":{"message":"…","id":"…"}}`，使用对应 HTTP 
 | 站点 | 接口 / 映射 | 验证状态 |
 | --- | --- | --- |
 | Danbooru | `/posts/{id}.json`；原图、large、preview、分类 tags、尺寸等 | 离线 mock 已通过；真实 API 待联调 |
-| Gelbooru | DAPI JSON；ID / MD5；支持 `post` 包装和数组响应、字符串或数字字段、可选认证 | 离线 mock 已通过；真实 API 待联调 |
-| yande.re | `/post.json?tags=id:{id}&limit=1`；Moebooru 字段 | 离线 mock 已通过；真实 API 待联调 |
-| Konachan | 同类 Moebooru 接口 | 离线 mock 已通过；真实 API 待联调 |
+| Gelbooru | DAPI JSON；ID / MD5；支持 `post` 包装和数组响应、字符串或数字字段、可选认证；通过 tag DAPI 补充 Artist / Character / Copyright 分类 | 离线 mock 已通过；真实 API 待联调 |
+| yande.re | `/post.json?api_version=2&include_tags=1&tags=id:{id}`；使用响应中的 tag 类型补充 Artist / Character / Copyright | 离线 mock 已通过；已通过部署接口验证基础媒体代理 |
+| Konachan | 同类 Moebooru 接口；兼容 v1 数组响应和 v2 包装响应 | 离线 mock 已通过；真实 API 待联调 |
 
 开发环境尝试读取四站的真实 JSON 均遇到连接拒绝，浏览工具也未取得接口响应。因此以上不能视为真实站点连通性或当前生产 JSON 格式的保证。测试数据是构造的契约数据，并非冒充线上抓取样本。
 
@@ -133,7 +144,7 @@ API 错误结构：`{"error":{"message":"…","id":"…"}}`，使用对应 HTTP 
 - 图片使用 `io.CopyBuffer` / 32 KiB 缓冲，不写磁盘、不读取整张图片到内存。传输中断只记录日志，不能在已输出的图片后附加错误页。
 - 传递 Content-Type、Content-Length、ETag、Last-Modified、Range 与条件请求；图片使用 `private, max-age=300`，不会继承上游 Cookie。
 - 拒绝 HTML、SVG 等主动内容，不把上游错误页面作为媒体输出。模板自动转义，页面设置 CSP。
-- 默认 sample → preview；没有独立缩略图就显示提示，不自动回退原图。sample 与 original URL 相同时也跳过。
+- 页面先加载较小的 preview，显示后在后台加载 sample 并自动替换；没有 preview 时直接显示 sample。没有独立缩略图就显示提示，不自动回退原图。sample 与 original URL 相同时也跳过。
 
 ## 测试
 
@@ -152,7 +163,7 @@ CGO_ENABLED=1 go test -race ./...
 ## 已知限制与扩展
 
 - 四站生产 API 与 CDN 尚待部署环境联调；上游反爬、账号权限、删除内容、限流、CDN 变更都可能导致失败。程序不绕过上游认证、不解析网页寻找原图。
-- Gelbooru / Moebooru 的普通 post 响应只有统一 tags 时，不额外请求 tag 分类；Artist / Character / Copyright 显示为空。文件大小等未提供字段显示未知。
+- Gelbooru 的普通 post 响应只有统一 tags，因此会额外调用 tag DAPI 分类 Artist / Character / Copyright；分类请求失败时图片仍可查看，这三个字段暂时显示为空。Moebooru 未提供的分类和文件大小等字段显示未知。
 - 不生成缩略图、不转码，不内嵌视频播放器；视频可通过原图入口打开或下载。部分格式取决于浏览器支持。
 - 媒体 3 分钟总超时可能中断非常慢的大图下载；客户端可使用 Range 重试。
 - 元数据缓存只在单进程内共享，不合并同时发生的相同 cache miss，满额淘汰最早过期条目；增加容量会提高内存占用。
