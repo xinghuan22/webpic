@@ -45,8 +45,8 @@ func TestRoutesAndMedia(t *testing.T) {
 			if strings.Contains(w.Body.String(), `src="/media/danbooru/42/original"`) || strings.Contains(w.Body.String(), `href="javascript:`) || strings.Contains(w.Body.String(), "<script>") {
 				t.Fatal("unsafe rendering")
 			}
-			if !strings.Contains(w.Body.String(), `src="/media/danbooru/42/preview"`) || !strings.Contains(w.Body.String(), `data-upgrade-src="/media/danbooru/42/sample"`) {
-				t.Fatal("preview is not progressively upgraded")
+			if !strings.Contains(w.Body.String(), `src="/media/danbooru/42/sample"`) || strings.Contains(w.Body.String(), `data-upgrade-src`) {
+				t.Fatal("view does not use sample directly")
 			}
 		}
 	}

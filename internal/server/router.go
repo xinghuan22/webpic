@@ -84,17 +84,14 @@ func New(reg *resolver.Registry, media *proxy.Proxy) *gin.Engine {
 			fail(c, proxy.Status(e))
 			return
 		}
-		variant, upgradeVariant := "", ""
-		if p.PreviewURL != "" {
-			variant = "preview"
-			if p.SampleURL != "" && p.SampleURL != p.PreviewURL {
-				upgradeVariant = "sample"
-			}
-		} else if p.SampleURL != "" {
+		variant := ""
+		if p.SampleURL != "" {
 			variant = "sample"
+		} else if p.PreviewURL != "" {
+			variant = "preview"
 		}
 		c.Header("Cache-Control", "no-store")
-		c.HTML(200, "post.html", gin.H{"Post": p, "Variant": variant, "UpgradeVariant": upgradeVariant})
+		c.HTML(200, "post.html", gin.H{"Post": p, "Variant": variant})
 	}
 	r.GET("/view", view)
 	r.GET("/post/:site/:id", view)

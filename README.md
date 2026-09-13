@@ -144,7 +144,7 @@ API 错误结构：`{"error":{"message":"…","id":"…"}}`，使用对应 HTTP 
 - 图片使用 `io.CopyBuffer` / 32 KiB 缓冲，不写磁盘、不读取整张图片到内存。传输中断只记录日志，不能在已输出的图片后附加错误页。
 - 传递 Content-Type、Content-Length、ETag、Last-Modified、Range 与条件请求；图片使用 `private, max-age=300`，不会继承上游 Cookie。
 - 拒绝 HTML、SVG 等主动内容，不把上游错误页面作为媒体输出。模板自动转义，页面设置 CSP。
-- 页面先加载较小的 preview，显示后在后台加载 sample 并自动替换；没有 preview 时直接显示 sample。没有独立缩略图就显示提示，不自动回退原图。sample 与 original URL 相同时也跳过。
+- 页面固定加载 sample，sample 缺失时才回退 preview；只有用户点击“查看原图”或“下载原图”时才请求 original。sample 与 original URL 相同时会跳过，避免页面自动加载原图。
 
 ## 测试
 

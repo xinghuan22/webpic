@@ -33,10 +33,10 @@
       <div class="viewer-label"><span>IMAGE PREVIEW</span><span>预览模式</span></div>
       {{if .Variant}}
       <a id="preview-link" class="preview-link" href="/media/{{.Post.Site}}/{{.Post.ID}}/{{.Variant}}" target="_blank" rel="noopener">
-        <img id="preview" src="/media/{{.Post.Site}}/{{.Post.ID}}/{{.Variant}}"{{if .UpgradeVariant}} data-upgrade-src="/media/{{.Post.Site}}/{{.Post.ID}}/{{.UpgradeVariant}}"{{end}} alt="{{.Post.Site}} 作品 {{.Post.ID}} 的预览" decoding="async">
+        <img id="preview" src="/media/{{.Post.Site}}/{{.Post.ID}}/{{.Variant}}" alt="{{.Post.Site}} 作品 {{.Post.ID}} 的预览" decoding="async">
       </a>
       <p id="preview-error" hidden>预览加载失败，请稍后刷新或打开原站。</p>
-      <p class="footnote">先显示缩略预览，清晰版本加载完成后自动替换</p>
+      <p class="footnote">页面展示适合浏览的 sample；原图仅在点击后加载</p>
       {{else}}
       <p class="muted">此作品暂无独立预览，可按需查看原图。</p>
       {{end}}
