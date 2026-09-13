@@ -52,15 +52,14 @@ Compose 会创建固定名称为 `data_kissnab` 的 bridge 网络，子网为
 ```sh
 nerdctl network ls
 cp .env.example .env
-mkdir -p data/manga/manifests/jm
-chown -R 65532:65532 data/manga
 openssl rand -hex 32
 ```
 
 把最后一条命令生成的值写入 Go 服务 `.env` 的 `MANGA_PUBLISH_SECRET`，并在
 AstrBot 插件配置的 `manga_publish_secret` 中填写完全相同的值。两台机器通过
 HTTPS 通信，不需要共享目录。现有 Caddy `reverse_proxy image-gateway:8080` 会同时
-代理漫画路由，无需增加单独的 handle。
+代理漫画路由，无需增加单独的 handle。漫画清单使用 Compose 命名卷
+`image-gateway-manga-data` 保存，镜像已经为 UID 65532 初始化其挂载目录。
 
 如果 `data_kissnab` 已由其他 Compose 项目创建，请确认其子网也是
 `172.20.0.0/24`。启动本项目后，可把运行中的 Caddy 接入网络：

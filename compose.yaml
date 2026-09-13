@@ -25,7 +25,7 @@ services:
       MAX_MANGA_MEGAPIXELS: '${MAX_MANGA_MEGAPIXELS:-40}'
       GOMEMLIMIT: '192MiB'
     volumes:
-      - ./data/manga:/data/manga
+      - manga-data:/data/manga
     tmpfs:
       - /tmp:size=64m,mode=1777
     logging:
@@ -43,3 +43,6 @@ networks:
       driver: default
       config:
         - subnet: 172.20.0.0/24
+volumes:
+  manga-data:
+    name: image-gateway-manga-data
