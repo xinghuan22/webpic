@@ -1,0 +1,35 @@
+services:
+  image-gateway:
+    build: .
+    image: image-gateway:latest
+    container_name: image-gateway
+    restart: always
+    read_only: true
+    mem_limit: 256m
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    environment:
+      LISTEN: ':8080'
+      MAX_PROXY_CONCURRENCY: '${MAX_PROXY_CONCURRENCY:-16}'
+      METADATA_TTL_SECONDS: '${METADATA_TTL_SECONDS:-1200}'
+      METADATA_CACHE_MAX: '${METADATA_CACHE_MAX:-1000}'
+      GELBOORU_USER_ID: '${GELBOORU_USER_ID:-}'
+      GELBOORU_API_KEY: '${GELBOORU_API_KEY:-}'
+      LOG_LEVEL: '${LOG_LEVEL:-info}'
+      GOMEMLIMIT: '192MiB'
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    networks:
+      - data_kissnab
+networks:
+  data_kissnab:
+    name: data_kissnab
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
