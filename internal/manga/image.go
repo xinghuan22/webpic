@@ -44,6 +44,14 @@ func (m *Media) Serve(w http.ResponseWriter, r *http.Request, provider, albumID,
 	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || u.Hostname() == "" {
 		return http.StatusBadRequest, errors.New("invalid source URL")
 	}
+	if page.Decode.Segments > 0 {
+		select {
+		case m.sem <- struct{}{}:
+			defer func() { <-m.sem }()
+		case <-r.Context().Done():
+			return 499, r.Context().Err()
+		}
+	}
 	ctx := safehttp.WithHosts(r.Context(), []string{u.Hostname()})
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -71,12 +79,6 @@ func (m *Media) Serve(w http.ResponseWriter, r *http.Request, provider, albumID,
 		w.WriteHeader(http.StatusOK)
 		_, err = io.CopyBuffer(w, resp.Body, make([]byte, 32*1024))
 		return http.StatusOK, err
-	}
-	select {
-	case m.sem <- struct{}{}:
-		defer func() { <-m.sem }()
-	default:
-		return http.StatusTooManyRequests, errors.New("manga decoder busy")
 	}
 	return m.decode(w, resp.Body, page.Decode.Segments)
 }
