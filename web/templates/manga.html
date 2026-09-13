@@ -1,0 +1,7 @@
+{{define "manga.html"}}<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>漫画阅读器</title><link rel="stylesheet" href="/static/manga.css"></head>
+<body data-provider="{{.Provider}}" data-album="{{.AlbumID}}">
+<header class="reader-header"><a href="/">图片网关</a><div><h1 id="title">正在加载…</h1><p id="meta"></p></div><button id="chapters-button" type="button">章节</button></header>
+<aside id="chapters" hidden><nav aria-label="章节列表"></nav></aside>
+<main id="reader" aria-live="polite"><p class="loading">正在获取漫画信息…</p></main>
+<button id="resume" type="button" hidden>继续上次阅读</button><script src="/static/manga.js" defer></script></body></html>{{end}}

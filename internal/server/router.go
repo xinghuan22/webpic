@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"html/template"
+	"image-gateway/internal/manga"
 	"image-gateway/internal/proxy"
 	"image-gateway/internal/resolver"
 	"image-gateway/web"
@@ -16,7 +17,7 @@ import (
 	"time"
 )
 
-func New(reg *resolver.Registry, media *proxy.Proxy) *gin.Engine {
+func New(reg *resolver.Registry, media *proxy.Proxy, mangaRoutes ...*manga.Routes) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	_ = r.SetTrustedProxies(nil)
@@ -110,6 +111,9 @@ func New(reg *resolver.Registry, media *proxy.Proxy) *gin.Engine {
 	}
 	r.GET("/media/:site/:id/:variant", serve(false))
 	r.GET("/download/:site/:id", serve(true))
+	if len(mangaRoutes) > 0 && mangaRoutes[0] != nil {
+		mangaRoutes[0].Register(r)
+	}
 	r.NoRoute(func(c *gin.Context) { fail(c, 404) })
 	return r
 }

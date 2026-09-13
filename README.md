@@ -10,6 +10,7 @@ internal/resolver/    URL 解析、站点 adapter、统一 ImagePost、元数据
 internal/safehttp/    共享客户端、域名策略、安全 DNS 拨号、重定向限制
 internal/cache/       有容量上限的泛型内存 TTL 缓存
 internal/proxy/       并发限制、流式图片转发、下载及 Range
+internal/manga/       签名清单、漫画阅读器媒体代理与 JM 解混淆
 internal/server/      Gin 路由、HTML/JSON 错误响应、请求日志
 web/                  embed 资源、暗色响应式模板、CSS、少量 JS
 Dockerfile            多阶段构建，scratch + CA，非 root 运行
@@ -51,7 +52,15 @@ Compose 会创建固定名称为 `data_kissnab` 的 bridge 网络，子网为
 ```sh
 nerdctl network ls
 cp .env.example .env
+mkdir -p data/manga/manifests/jm
+chown -R 65532:65532 data/manga
+openssl rand -hex 32
 ```
+
+把最后一条命令生成的值写入 Go 服务 `.env` 的 `MANGA_PUBLISH_SECRET`，并在
+AstrBot 插件配置的 `manga_publish_secret` 中填写完全相同的值。两台机器通过
+HTTPS 通信，不需要共享目录。现有 Caddy `reverse_proxy image-gateway:8080` 会同时
+代理漫画路由，无需增加单独的 handle。
 
 如果 `data_kissnab` 已由其他 Compose 项目创建，请确认其子网也是
 `172.20.0.0/24`。启动本项目后，可把运行中的 Caddy 接入网络：
@@ -87,6 +96,13 @@ https://image.lospro.kissnab.top {
 | `METADATA_CACHE_MAX` | `1000` | 最大缓存条目，范围 1–10000；MD5 别名也占条目 |
 | `GELBOORU_USER_ID` | 空 | Gelbooru 用户 ID |
 | `GELBOORU_API_KEY` | 空 | Gelbooru API key，与用户 ID 一起配置 |
+| `MANGA_PUBLISH_SECRET` | 空 | AstrBot 与 Go 共用的 HMAC 密钥；至少 32 字符，为空时关闭漫画路由 |
+| `PUBLIC_BASE_URL` | `http://localhost:监听端口` | 发布接口返回给用户的公网地址 |
+| `MANGA_MANIFEST_DIR` | `data/manga/manifests` | 只保存小型 JSON 清单，不保存漫画图片 |
+| `JM_IMAGE_HOST_SUFFIXES` | 内置 JM CDN 列表 | 允许代理的图片域名后缀，逗号分隔 |
+| `MAX_MANGA_DECODE_CONCURRENCY` | `2` | 同时解混淆的图片数，范围 1–8 |
+| `MAX_MANGA_IMAGE_MIB` | `24` | 单张待解混淆图片的编码大小上限 |
+| `MAX_MANGA_MEGAPIXELS` | `40` | 单张待解混淆图片的像素上限 |
 | `LOG_LEVEL` | `info` | `info` / `debug` |
 | `GOMEMLIMIT` | compose 中 `192MiB` | Go GC 软内存目标，不是硬限制 |
 
@@ -103,6 +119,10 @@ https://image.lospro.kissnab.top {
 | `GET /post/:site/:id` | 根据站点与 ID 查看 |
 | `GET /media/:site/:id/:variant` | `preview` / `sample` / `original` 流式代理 |
 | `GET /download/:site/:id` | 原图附件下载，文件名 `site_id.ext` |
+| `POST /api/manga/publish` | AstrBot 使用 HMAC 签名发布 JM 元数据清单 |
+| `GET /manga/jm/:albumID` | 纵向懒加载漫画阅读页，浏览器记忆阅读位置 |
+| `GET /api/manga/jm/:albumID` | 供阅读页获取脱敏后的章节与代理图片地址 |
+| `GET /manga/media/jm/:albumID/:chapterID/:page` | 临时拉取图片并按需解混淆 |
 
 站点标识：`danbooru`、`gelbooru`、`yandere`、`konachan`。
 
@@ -142,6 +162,7 @@ API 错误结构：`{"error":{"message":"…","id":"…"}}`，使用对应 HTTP 
 - 实际拨号先解析 DNS，拒绝私网、回环、link-local、共享地址和若干保留地址，再直接连接已检查的 IP，避免 DNS 重绑定。保留正常 TLS 主机名验证。不使用环境 HTTP 代理。
 - 共享 HTTP client，单主机最多 20 连接，32 个空闲连接；元数据请求并发最多 8，20 秒超时，JSON 读取有上限；媒体请求最多 3 分钟。
 - 图片使用 `io.CopyBuffer` / 32 KiB 缓冲，不写磁盘、不读取整张图片到内存。传输中断只记录日志，不能在已输出的图片后附加错误页。
+- 漫画图片不做永久缓存。需要解混淆的图片只在 `/tmp` tmpfs 中短暂停留，完成响应后立即删除；清单 API 不返回上游图片 URL 和解码参数。
 - 传递 Content-Type、Content-Length、ETag、Last-Modified、Range 与条件请求；图片使用 `private, max-age=300`，不会继承上游 Cookie。
 - 拒绝 HTML、SVG 等主动内容，不把上游错误页面作为媒体输出。模板自动转义，页面设置 CSP。
 - 页面固定加载 sample，sample 缺失时才回退 preview；只有用户点击“查看原图”或“下载原图”时才请求 original。sample 与 original URL 相同时会跳过，避免页面自动加载原图。

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image-gateway/internal/manga"
 	"image-gateway/internal/proxy"
 	"image-gateway/internal/resolver"
 	"image-gateway/internal/safehttp"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -46,7 +48,30 @@ func main() {
 	}
 	client := safehttp.New()
 	reg := resolver.New(client, time.Duration(number("METADATA_TTL_SECONDS", 1200, 1, 86400))*time.Second, number("METADATA_CACHE_MAX", 1000, 1, 10000), os.Getenv("GELBOORU_USER_ID"), os.Getenv("GELBOORU_API_KEY"))
-	router := server.New(reg, proxy.New(client, reg, number("MAX_PROXY_CONCURRENCY", 16, 1, 128)))
+	var mangaRoutes *manga.Routes
+	if secret := os.Getenv("MANGA_PUBLISH_SECRET"); secret != "" {
+		dir := os.Getenv("MANGA_MANIFEST_DIR")
+		if dir == "" {
+			dir = "data/manga/manifests"
+		}
+		hosts := os.Getenv("JM_IMAGE_HOST_SUFFIXES")
+		if hosts == "" {
+			hosts = "jmapiproxy1.cc,jmapiproxy2.cc,jmapinodeudzn.net,18comic.org,18comic.vip"
+		}
+		store, err := manga.NewStore(dir, secret, strings.Split(hosts, ","))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		base := os.Getenv("PUBLIC_BASE_URL")
+		if base == "" {
+			base = "http://localhost" + listen
+		}
+		mangaRoutes = &manga.Routes{Store: store, Media: manga.NewMedia(store, client, number("MAX_MANGA_DECODE_CONCURRENCY", 2, 1, 8), int64(number("MAX_MANGA_IMAGE_MIB", 24, 1, 100))*1024*1024, int64(number("MAX_MANGA_MEGAPIXELS", 40, 1, 100))*1000000, "/tmp"), PublicBase: base}
+	} else {
+		slog.Warn("manga reader disabled", "reason", "MANGA_PUBLISH_SECRET is empty")
+	}
+	router := server.New(reg, proxy.New(client, reg, number("MAX_PROXY_CONCURRENCY", 16, 1, 128)), mangaRoutes)
 	s := &http.Server{Addr: listen, Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 190 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
